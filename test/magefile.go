@@ -5,5 +5,5 @@ package main
 
 import (
 	// mage:import
-	_ "github.com/janakerman/mage-play/version"
+	_ "github.com/janakerman/mage-play/targets/version"
 )

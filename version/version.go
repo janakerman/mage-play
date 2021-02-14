@@ -2,55 +2,72 @@ package version
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 )
 
-// Version does things.
-func Version() error {
-	fmt.Println("version")
-
-	dir, err := os.Getwd()
+func NewVersion(repo *git.Repository) error {
+	tags, err := latestAncestorTags(repo)
 	if err != nil {
 		return err
 	}
-	fmt.Println("Working dir: ", dir)
 
-	repo, err := git.PlainOpen(dir)
-	if err != nil {
-		return nil
+	for _, t := range tags {
+		fmt.Println("latest tag: ", t.Name)
 	}
+	return nil
+}
 
+func latestAncestorTags(repo *git.Repository) ([]*object.Tag, error) {
 	ref, err := repo.Head()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	cIter, err := repo.Log(&git.LogOptions{From: ref.Hash()})
+	hashToTags, err := hashToTags(repo)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
+	cIter, err := repo.Log(&git.LogOptions{
+		From:  ref.Hash(),
+		Order: git.LogOrderDFS,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var tags []*object.Tag
 	err = cIter.ForEach(func(c *object.Commit) error {
-		fmt.Println(c.String())
-		return nil
+		commitTags, ok := hashToTags[c.Hash]
+		if !ok || len(commitTags) == 0 { // TODO: Handle
+			return nil
+		}
+
+		if tags == nil { // We only care about the latest tags aka first iteration.
+			tags = commitTags
+		}
+		return nil // storer.ErrStop
 	})
 	if err != nil {
-		return nil
+		return nil, err
 	}
+	return tags, nil
+}
 
-	tagrefs, err := repo.Tags()
+// hashToTags returns a map of target hash (commit hash) to tag.
+func hashToTags(repo *git.Repository) (map[plumbing.Hash][]*object.Tag, error) {
+	tags, err := repo.TagObjects()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	tagrefs.ForEach(func(c *plumbing.Reference) error {
-		fmt.Println(c)
+	hashToTag := map[plumbing.Hash][]*object.Tag{}
+	err = tags.ForEach(func(t *object.Tag) error {
+		hashToTag[t.Target] = append(hashToTag[t.Target], t)
 		return nil
 	})
-
-	return nil
+	return hashToTag, nil
 }

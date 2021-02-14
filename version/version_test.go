@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"reflect"
 	"testing"
 	"time"
 
@@ -53,29 +54,38 @@ func CommitWithTag(repo *git.Repository, msg, tag string) (*plumbing.Reference, 
 		return nil, err
 	}
 
-	return repo.CreateTag(tag, firstHash, nil)
+	if tag == "" {
+		return nil, nil
+	}
+
+	fmt.Printf("Creating tag %s on commit %s\n", tag, firstHash.String())
+	// return repo.CreateTag(tag, firstHash, nil)
+	return repo.CreateTag(tag, firstHash, &git.CreateTagOptions{
+		Message: "asdf",
+	})
 }
 
-func RunMage(repo *git.Repository, target string) error {
+func GoRunMage(repo *git.Repository, target string) error {
 	workTree, err := repo.Worktree()
 	Must(err)
 	workingDir := workTree.Filesystem.Root()
 
-	fmt.Println("asdf")
-	cmd := exec.Command("go", "run", "test/mage.go", "-d", "test", "-w", workingDir, target)
+	cmd := exec.Command("go", "run", "../test/mage.go", "-d", "../test", "-w", workingDir, target)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
 
-func Test_Version(t *testing.T) {
-	fmt.Println("asdf1")
+func Test_VersionDoesNothingIfTagExists(t *testing.T) {
 	repo, err := CreateTestRepo()
 	Must(err)
 
-	CommitWithTag(repo, "Merge 1", "v1.0.0")
-	CommitWithTag(repo, "Merge 2", "")
+	_, err = CommitWithTag(repo, "Merge 1", "v1.0.0")
+	fmt.Println(reflect.TypeOf(err))
+	Must(err)
+	_, err = CommitWithTag(repo, "Merge 2", "")
+	Must(err)
 
-	err = RunMage(repo, "version")
+	err = GoRunMage(repo, "version")
 	Must(err)
 }
