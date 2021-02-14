@@ -1,6 +1,7 @@
 package version_test
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"testing"
@@ -60,18 +61,21 @@ func RunMage(repo *git.Repository, target string) error {
 	Must(err)
 	workingDir := workTree.Filesystem.Root()
 
-	cmd := exec.Command("go", "run", "./test/mage.go", "-w", workingDir, target)
+	fmt.Println("asdf")
+	cmd := exec.Command("go", "run", "test/mage.go", "-d", "test", "-w", workingDir, target)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
 
 func Test_Version(t *testing.T) {
+	fmt.Println("asdf1")
 	repo, err := CreateTestRepo()
 	Must(err)
 
 	CommitWithTag(repo, "Merge 1", "v1.0.0")
 	CommitWithTag(repo, "Merge 2", "")
 
-	RunMage(repo, "version")
+	err = RunMage(repo, "version")
+	Must(err)
 }
