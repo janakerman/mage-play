@@ -11,6 +11,7 @@ import (
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/cache"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/storage/filesystem"
 )
@@ -34,7 +35,8 @@ func CreateTestRepo() (*git.Repository, error) {
 		return nil, err
 	}
 
-	return git.Init(filesystem.NewStorage(osfs.New(repoDir+".git"), nil), osfs.New(repoDir))
+	// Cache is needed to avoid nil panic.
+	return git.Init(filesystem.NewStorage(osfs.New(repoDir+".git"), cache.NewObjectLRUDefault()), osfs.New(repoDir))
 }
 
 func CommitWithTag(repo *git.Repository, msg, tag string) (*plumbing.Reference, error) {
@@ -61,6 +63,11 @@ func CommitWithTag(repo *git.Repository, msg, tag string) (*plumbing.Reference, 
 	fmt.Printf("Creating tag %s on commit %s\n", tag, firstHash.String())
 	// return repo.CreateTag(tag, firstHash, nil)
 	return repo.CreateTag(tag, firstHash, &git.CreateTagOptions{
+		Tagger: &object.Signature{
+			Name:  "name",
+			Email: "email",
+			When:  time.Now(),
+		},
 		Message: "asdf",
 	})
 }

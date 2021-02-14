@@ -42,14 +42,14 @@ func latestAncestorTags(repo *git.Repository) ([]*object.Tag, error) {
 	var tags []*object.Tag
 	err = cIter.ForEach(func(c *object.Commit) error {
 		commitTags, ok := hashToTags[c.Hash]
-		if !ok || len(commitTags) == 0 { // TODO: Handle
+		if !ok || len(commitTags) == 0 {
 			return nil
 		}
 
 		if tags == nil { // We only care about the latest tags aka first iteration.
 			tags = commitTags
 		}
-		return nil // storer.ErrStop
+		return nil // TODO: Return storer.ErrStop to break loop.
 	})
 	if err != nil {
 		return nil, err
