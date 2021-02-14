@@ -1,6 +1,6 @@
 // +build ignore
 
-// This file supports a no install run of Mage for use in tests.
+// This file provides a no install way to run the Mage tool for use in this packages tests.
 package main
 
 import (

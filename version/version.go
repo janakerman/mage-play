@@ -1,6 +1,4 @@
-//+build mage
-
-package main
+package version
 
 import (
 	"fmt"
@@ -11,6 +9,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 )
 
+// Version does things.
 func Version() error {
 	fmt.Println("version")
 
