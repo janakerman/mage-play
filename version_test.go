@@ -70,8 +70,8 @@ func Test_Version(t *testing.T) {
 	repo, err := CreateTestRepo()
 	Must(err)
 
-	CommitWithTag(repo, "Release v1", "v1.0.0")
-	CommitWithTag(repo, "Release v1", "v2.0.0")
+	CommitWithTag(repo, "Merge 1", "v1.0.0")
+	CommitWithTag(repo, "Merge 2", "")
 
 	RunMage(repo, "version")
 }
