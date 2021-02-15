@@ -1,6 +1,7 @@
 package version
 
 import (
+	"context"
 	"os"
 
 	"github.com/go-git/go-git/v5"
@@ -8,7 +9,7 @@ import (
 )
 
 // Version tags the current commit with the next version number based on the commit message.
-func Version() error {
+func BumpVersion(ctx context.Context) error {
 	dir, err := os.Getwd()
 	if err != nil {
 		return err
@@ -19,5 +20,5 @@ func Version() error {
 		return nil
 	}
 
-	return version.NewVersion(repo)
+	return version.BumpVersion(ctx, repo)
 }

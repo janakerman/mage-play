@@ -1,10 +1,10 @@
 package version_test
 
 import (
-	"fmt"
+	"context"
+	"github.com/janakerman/mage-play/version"
 	"os"
 	"os/exec"
-	"reflect"
 	"testing"
 	"time"
 
@@ -16,9 +16,10 @@ import (
 	"github.com/go-git/go-git/v5/storage/filesystem"
 )
 
-func Must(err error) {
+func Must(t *testing.T, err error) {
 	if err != nil {
-		panic(err)
+		t.Errorf(err.Error())
+		t.FailNow()
 	}
 }
 
@@ -26,26 +27,50 @@ func CreateTestRepo() (*git.Repository, error) {
 	rootDir := os.TempDir() + ".test/"
 	err := os.RemoveAll(rootDir)
 	if err != nil {
-		return nil, err
+		return nil,  err
 	}
 
-	repoDir := rootDir + "repo/"
-	os.MkdirAll(repoDir, 0777)
+	repoDir := rootDir + "remote/"
+	err = os.MkdirAll(repoDir, 0777)
 	if err != nil {
 		return nil, err
 	}
 
 	// Cache is needed to avoid nil panic.
-	return git.Init(filesystem.NewStorage(osfs.New(repoDir+".git"), cache.NewObjectLRUDefault()), osfs.New(repoDir))
+	repo, err := git.Init(filesystem.NewStorage(osfs.New(repoDir+".git"), cache.NewObjectLRUDefault()), osfs.New(repoDir))
+	if err != nil {
+		return  nil, err
+	}
+	return repo, nil
 }
 
-func CommitWithTag(repo *git.Repository, msg, tag string) (*plumbing.Reference, error) {
+func CloneTestRepo() (*git.Repository, error) {
+	rootDir := os.TempDir() + ".test/"
+
+	repoDir := rootDir + "repo/"
+	err := os.MkdirAll(repoDir, 0777)
+	if err != nil {
+		return nil, err
+	}
+
+	// Cache is needed to avoid nil panic.
+	repo, err := git.Clone(filesystem.NewStorage(osfs.New(repoDir+".git"), cache.NewObjectLRUDefault()), osfs.New(repoDir), &git.CloneOptions{
+		URL:               rootDir + "remote/",
+		RemoteName:        "origin",
+	})
+	if err != nil {
+		return  nil, err
+	}
+	return repo, nil
+}
+
+func CommitWithTag(repo *git.Repository, msg, tag string) (*plumbing.Hash, error) {
 	w, err := repo.Worktree()
 	if err != nil {
 		return nil, err
 	}
 
-	firstHash, err := w.Commit(msg, &git.CommitOptions{
+	commitHash, err := w.Commit(msg, &git.CommitOptions{
 		Author: &object.Signature{
 			Name:  "John Doe",
 			Email: "john@doe.org",
@@ -57,12 +82,10 @@ func CommitWithTag(repo *git.Repository, msg, tag string) (*plumbing.Reference, 
 	}
 
 	if tag == "" {
-		return nil, nil
+		return &commitHash, nil
 	}
 
-	fmt.Printf("Creating tag %s on commit %s\n", tag, firstHash.String())
-	// return repo.CreateTag(tag, firstHash, nil)
-	return repo.CreateTag(tag, firstHash, &git.CreateTagOptions{
+	_, err = repo.CreateTag(tag, commitHash, &git.CreateTagOptions{
 		Tagger: &object.Signature{
 			Name:  "name",
 			Email: "email",
@@ -70,11 +93,18 @@ func CommitWithTag(repo *git.Repository, msg, tag string) (*plumbing.Reference, 
 		},
 		Message: "asdf",
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &commitHash, nil
 }
 
 func GoRunMage(repo *git.Repository, target string) error {
 	workTree, err := repo.Worktree()
-	Must(err)
+	if err != nil {
+		return err
+	}
 	workingDir := workTree.Filesystem.Root()
 
 	cmd := exec.Command("go", "run", "../test/mage.go", "-d", "../test", "-w", workingDir, target)
@@ -83,16 +113,52 @@ func GoRunMage(repo *git.Repository, target string) error {
 	return cmd.Run()
 }
 
-func Test_VersionDoesNothingIfTagExists(t *testing.T) {
-	repo, err := CreateTestRepo()
-	Must(err)
+func Test_BumpVersionViaMage(t *testing.T) {
+	remote, err := CreateTestRepo()
+	Must(t, err)
+	_, err = CommitWithTag(remote, "Merge 1", "1.0.0")
+	Must(t, err)
+	latest, err := CommitWithTag(remote, "Merge 2", "")
+	Must(t, err)
+	repo, err := CloneTestRepo()
+	Must(t, err)
 
-	_, err = CommitWithTag(repo, "Merge 1", "1.0.0")
-	fmt.Println(reflect.TypeOf(err))
-	Must(err)
-	_, err = CommitWithTag(repo, "Merge 2", "")
-	Must(err)
 
-	err = GoRunMage(repo, "version")
-	Must(err)
+	err = GoRunMage(repo, "bumpVersion")
+	Must(t, err)
+
+
+	ref, err := remote.Tag("1.0.1")
+	Must(t, err)
+	r, err := remote.TagObject(ref.Hash())
+	Must(t, err)
+
+	if r.Target != *latest {
+		t.Error("expected tag not present")
+	}
+}
+
+func Test_BumpVersion(t *testing.T) {
+	remote, err := CreateTestRepo()
+	Must(t, err)
+	_, err = CommitWithTag(remote, "Merge 1", "1.0.0")
+	Must(t, err)
+	latest, err := CommitWithTag(remote, "Merge 2", "")
+	Must(t, err)
+	repo, err := CloneTestRepo()
+	Must(t, err)
+
+
+	err = version.BumpVersion(context.TODO(), repo)
+	Must(t, err)
+
+
+	ref, err := remote.Tag("1.0.1")
+	Must(t, err)
+	r, err := remote.TagObject(ref.Hash())
+	Must(t, err)
+
+	if r.Target != *latest {
+		t.Error("expected tag not present")
+	}
 }

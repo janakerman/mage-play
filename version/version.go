@@ -1,8 +1,13 @@
 package version
 
 import (
+	"context"
 	"fmt"
+	"github.com/go-git/go-git/v5/config"
+	"os"
 	"sort"
+	"strings"
+	"time"
 
 	"github.com/blang/semver/v4"
 	"github.com/go-git/go-git/v5"
@@ -10,7 +15,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 )
 
-func NewVersion(repo *git.Repository) error {
+func BumpVersion(ctx context.Context, repo *git.Repository) error {
 	tags, err := latestAncestorTags(repo)
 	if err != nil {
 		return err
@@ -20,23 +25,84 @@ func NewVersion(repo *git.Repository) error {
 		return fmt.Errorf("no tags found on branch")
 	}
 
-	var versions []semver.Version
+	_, version, err := latestTag(tags)
+	if err != nil {
+		return fmt.Errorf("error parsing tags: %w", err)
+	}
+
+	err = bumpHead(repo, version)
+	if err != nil {
+		return fmt.Errorf("failed bumping version: %w", err)
+	}
+
+	err = repo.PushContext(ctx, &git.PushOptions{
+		RemoteName: "origin",
+		RefSpecs:   []config.RefSpec{"refs/tags/*:refs/tags/*"},
+		Progress:   os.Stdout,
+	})
+	if err != nil {
+		return fmt.Errorf("failed pushing tags: %w", err)
+	}
+
+	return nil
+}
+
+func bumpHead(repo *git.Repository, latestVersion semver.Version) error {
+	ref, err := repo.Head()
+	if err != nil {
+		return fmt.Errorf("failed to fetch head: %w", err)
+	}
+
+	commit, err := repo.CommitObject(ref.Hash())
+	if err != nil {
+		return fmt.Errorf("failed to get commit object: %w", err)
+	}
+
+	if strings.Contains(commit.Message, "#bump-major") {
+		latestVersion.Major++
+	} else if strings.Contains(commit.Message, "#bump-minor") {
+		latestVersion.Minor++
+	} else {
+		latestVersion.Patch++
+	}
+
+	ref, err = repo.CreateTag(latestVersion.String(), commit.Hash, &git.CreateTagOptions{
+		Message: fmt.Sprintf("Release %s", latestVersion.String()),
+		Tagger: &object.Signature{ // TODO: Take from somewhere else.
+			Name:  "name",
+			Email: "email",
+			When:  time.Time{},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed creating tag: %w", err)
+	}
+	return nil
+}
+
+func latestTag(tags []*object.Tag) (*object.Tag, semver.Version, error) {
+	type pair struct {
+		semver semver.Version
+		tag *object.Tag
+	}
+
+	var versions []pair
 	for _, t := range tags {
 		v, err := semver.Make(t.Name)
 		if err != nil {
-			return fmt.Errorf("failed parsing version: %w", err)
+			return nil, semver.Version{}, fmt.Errorf("failed parsing version: %w", err)
 		}
-		versions = append(versions, v)
+		versions = append(versions, pair{
+			semver: v,
+			tag:    t,
+		})
 	}
 
 	sort.SliceStable(versions, func(i, j int) bool {
-		return versions[i].Compare(versions[j]) > 0
+		return versions[i].semver.Compare(versions[j].semver) > 0
 	})
 
-	latest := versions[0]
-	fmt.Printf("Latest tag: %s", latest.String())
-
-	return nil
+	return versions[0].tag, versions[0].semver, nil
 }
 
 func latestAncestorTags(repo *git.Repository) ([]*object.Tag, error) {
