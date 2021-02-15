@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	github.com/Microsoft/go-winio v0.4.16 // indirect
+	github.com/blang/semver/v4 v4.0.0
 	github.com/go-git/go-billy/v5 v5.0.0
 	github.com/go-git/go-git v4.7.0+incompatible
 	github.com/go-git/go-git/v5 v5.2.0

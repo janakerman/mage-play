@@ -87,7 +87,7 @@ func Test_VersionDoesNothingIfTagExists(t *testing.T) {
 	repo, err := CreateTestRepo()
 	Must(err)
 
-	_, err = CommitWithTag(repo, "Merge 1", "v1.0.0")
+	_, err = CommitWithTag(repo, "Merge 1", "1.0.0")
 	fmt.Println(reflect.TypeOf(err))
 	Must(err)
 	_, err = CommitWithTag(repo, "Merge 2", "")

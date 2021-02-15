@@ -2,7 +2,9 @@ package version
 
 import (
 	"fmt"
+	"sort"
 
+	"github.com/blang/semver/v4"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
@@ -14,9 +16,26 @@ func NewVersion(repo *git.Repository) error {
 		return err
 	}
 
-	for _, t := range tags {
-		fmt.Println("latest tag: ", t.Name)
+	if len(tags) == 0 {
+		return fmt.Errorf("no tags found on branch")
 	}
+
+	var versions []semver.Version
+	for _, t := range tags {
+		v, err := semver.Make(t.Name)
+		if err != nil {
+			return fmt.Errorf("failed parsing version: %w", err)
+		}
+		versions = append(versions, v)
+	}
+
+	sort.SliceStable(versions, func(i, j int) bool {
+		return versions[i].Compare(versions[j]) > 0
+	})
+
+	latest := versions[0]
+	fmt.Printf("Latest tag: %s", latest.String())
+
 	return nil
 }
 
