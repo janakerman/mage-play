@@ -1,6 +1,6 @@
 # mage-play
 
-An evaluation of [Mage](https://magefile.org).
+An evaluation of [Mage](https://magefile.org). The result is a project defining importable Mage targets that could be imported into other Magefiles, demonstrating two possible test approaches, 1) running a Magefile importing the targets, 2) unit testing the package.
 
 ## Targets
 
