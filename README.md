@@ -4,7 +4,7 @@ An evaluation of [Mage](https://magefile.org). The result is a project defining 
 
 ## Targets
 
-Mage targets are in `targets/`. They can be imported as per `test/mage.go`. Note that `magefile.go` exists to support
+Mage targets are in `targets/`. They can be imported as per `test/mage.go`. Note that `mage.go` exists to support
 running with `go run` as used in the tests (`go run tests/mage.go ...`). This is to avoid the dependency on the `mage`
 binary. If mage is installed on the system then `mage ...` in the `test/` directory would suffice.
 
